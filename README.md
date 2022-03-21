@@ -1,2 +1,2 @@
 # discord-bot
-Simple dicord-bot with use discord.py
+Simple dicord-bot with using discord.py
