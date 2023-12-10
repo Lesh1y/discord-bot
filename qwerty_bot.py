@@ -4,13 +4,12 @@ from pathlib import Path
 from random import choice
 from typing import NoReturn
 
-import discord
-from discord import Activity, ActivityType, Intents, Embed, Colour, File
+from discord import Activity, ActivityType, Colour, Embed, File, Intents, Member
 from discord.ext import commands
 from dotenv import load_dotenv
 
+from modules.conf import bye_msg, Channels, hello_msg
 from modules.logger import logger
-from modules.conf import bye_msg, hello_msg
 
 
 class QwertyBot(commands.Bot):
@@ -23,6 +22,7 @@ class QwertyBot(commands.Bot):
 
     async def on_ready(self) -> None:
         """Обработка события `при готовности`"""
+        # настройка "активности" (дополнительная подсказка для пользователя на иконке бота)
         await self.change_presence(
             activity=Activity(
                 type=ActivityType.listening,
@@ -58,8 +58,8 @@ class QwertyBot(commands.Bot):
         embed = Embed(color=Colour.dark_green())
         embed.add_field(name='Добро пожаловать!',
                         value=f'{choice(hello_msg(member))}'
-                              '\n**Рады тебя видеть!** \n Загляни в <#539833779095601152> (ツ) '
-                              'И не забудь подобрать себе роль по вкусу в <#747843889725177917> '
+                              f'\n**Рады тебя видеть!** \n Загляни в {Channels.rules} (ツ) '
+                              f'И не забудь подобрать себе роль по вкусу в {Channels.roles} '
                               ':stuck_out_tongue_winking_eye: ')
         embed.set_image(url='attachment://join.png')
         embed.set_footer(text=f'{datetime.now().strftime("%d-%m-%Y %H:%M")}'
@@ -68,7 +68,7 @@ class QwertyBot(commands.Bot):
         logger.info(f'пользователь {member.name} подключился к серверу')
 
     @commands.Cog.listener()
-    async def on_member_remove(self, member: discord.Member):
+    async def on_member_remove(self, member: Member):
         """При отключении пользователя"""
         channel = member.guild.system_channel
 

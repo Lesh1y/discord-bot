@@ -1,5 +1,3 @@
-from asyncio import get_event_loop
-
 from qwerty_bot import QwertyBot
 
 

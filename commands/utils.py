@@ -7,8 +7,8 @@ class Utils(commands.Cog, name='утилиты'):
     def __init__(self, bot):
         self.bot = bot
 
-    @commands.command(aliases=['p'])
-    async def ping(self, ctx):
+    @commands.command(aliases=('p',))
+    async def ping(self, ctx) -> None:
         """Команда возвращает 'pong' в чат"""
         await ctx.message.add_reaction('✅')
 
@@ -17,6 +17,6 @@ class Utils(commands.Cog, name='утилиты'):
         await ctx.message.delete(delay=1)
 
 
-async def setup(bot):
+async def setup(bot) -> None:
     """Настройка"""
     await bot.add_cog(Utils(bot))
