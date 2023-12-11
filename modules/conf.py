@@ -17,7 +17,7 @@ def bye_msg(member) -> tuple[str, ...]:
     return bye_msg_tuple
 
 
-class Channels(Enum):
+class EnumOfChannels(Enum):
     rules: str = '<#539833779095601152>'
     roles: str = '<#747843889725177917>'
 
