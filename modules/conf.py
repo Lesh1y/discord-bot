@@ -17,9 +17,18 @@ def bye_msg(member) -> tuple[str, ...]:
     return bye_msg_tuple
 
 
-class Channels(Enum):
-    rules: str = '<#539833779095601152>'
-    roles: str = '<#747843889725177917>'
+class EnumOfChannelsMentions(Enum):
+    rules = getenv('RULES_CHAT_MENTION', '<#539833779095601152>')
+    roles = getenv('ROLES_CHAT_MENTION', '<#747843889725177917>')
+
+
+class EnumOfPostIds(Enum):
+    roles_post = getenv('ROLES_POST_ID', 747846534497828925)
+
+
+class EnumOfRolesIds(Enum):
+    gamer = getenv('GAMER_ROLE_ID', 747471674374488105)
+    it = getenv('IT_ROLE_ID', 739003525396168796)
 
 
 def hello_msg(member) -> tuple[str, ...]:
