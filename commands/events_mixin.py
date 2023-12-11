@@ -3,7 +3,7 @@ from random import choice
 
 from discord import Colour, Embed, File, Member
 from discord.ext import commands
-from modules.conf import bye_msg, EnumOfChannels, hello_msg
+from modules.conf import bye_msg, EnumOfChannelsMentions, hello_msg
 from modules.logger import logger
 
 
@@ -33,8 +33,8 @@ class EventsMixin(commands.Cog):
         embed = Embed(color=Colour.dark_green())
         embed.add_field(name='Добро пожаловать!',
                         value=f'{choice(hello_msg(member))}'
-                              f'\n**Рады тебя видеть!** \n Загляни в {EnumOfChannels.rules} (ツ) '
-                              f'И не забудь подобрать себе роль по вкусу в {EnumOfChannels.roles} '
+                              f'\n**Рады тебя видеть!** \n Загляни в {EnumOfChannelsMentions.rules.value} (ツ) '
+                              f'И не забудь подобрать себе роль по вкусу в {EnumOfChannelsMentions.roles.value} '
                               ':stuck_out_tongue_winking_eye: ')
         embed.set_image(url='attachment://join.png')
         embed.set_footer(text=f'{datetime.now().strftime("%d-%m-%Y %H:%M")}'
