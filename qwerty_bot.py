@@ -7,6 +7,7 @@ from discord.ext import commands
 from dotenv import load_dotenv
 
 from modules.logger import logger
+from modules.custom_help import NewHelp
 
 
 class QwertyBot(commands.Bot):
@@ -14,7 +15,8 @@ class QwertyBot(commands.Bot):
         """Многофункциональный самописный бот для Discord"""
         self._cogs = [p.stem for p in Path(".").glob("commands/*.py")]
         super().__init__(
-            command_prefix=self.prefix, intents=self.get_intents, case_insensitive=True
+            command_prefix=self.prefix, intents=self.get_intents, case_insensitive=True,
+            help_command=NewHelp()
         )
 
     async def on_ready(self) -> None:
