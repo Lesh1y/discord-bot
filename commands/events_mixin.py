@@ -20,7 +20,9 @@ class EventsMixin(commands.Cog):
             logger.info(
                 f'Пользователь {ctx.author.name} вызвал несуществующую команду {ctx.message.content}\n{err=}'
             )
+            return
 
+        logger.error(err)
         await ctx.message.delete(delay=1)
 
     @commands.Cog.listener()
