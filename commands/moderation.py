@@ -1,4 +1,5 @@
 """Пакет модерации"""
+import logging
 from datetime import datetime
 from os import getenv
 from typing import Union
@@ -7,20 +8,39 @@ import discord
 
 from discord.ext import commands
 
-from modules.logger import logger
+from modules.conf import MODERATION_COG_ERRORS
 
 
-class Moderation(commands.Cog, name='модерация'):
-    """Команды для модераторов"""
+class Moderation(commands.Cog, name='Модерация'):
+    """Набор команд для модераторов"""
 
-    def __init__(self, bot):
-        self.bot = bot
+    @staticmethod
+    def check_target_member_permissions(
+            context: commands.Context,
+            action: str,
+            member: discord.Member,
+    ) -> Union[int, str]:
+        """**Метод фильтрации действий по правам "цели".**
 
-    def check_target_member_permissions(self, member: discord.Member, author_name: str) -> Union[int, str]:
+        ----
+
+        Note:
+
+        Здесь мы проверяем, не пытается ли пользователь забанить бота или другого администратора/модератора.
+
+        ----
+
+        :param context: Контекст вызова команды (:class:`commands.Context`).
+        :param action: Действие [заблокировать | выгнать] над пользователем,
+            доступность которого необходимо проверить (:class:`str`).
+        :param member: Пользователь, над котором производится попытка выполнить действие (:class:`discord.Member`).
+        """
+        owner = getenv("GUILD_OWNER")
+
         # Проверка на права бота у "цели"
-        if member.id == self.bot.user.id:
-            logger.info(f'модератор {author_name} попытался забанить бота')
-            return ':no_entry: <@{}> Нельзя {} бота!\nОбратитесь к {}'
+        if member.id == context.bot.user.id:
+            logging.info(f'модератор {context.author.name} попытался забанить бота')
+            return f':no_entry: {context.author.mention}, нельзя {action} бота!'
 
         # Проверка на наличие прав администратора/модератора у "цели"
         if any(
@@ -30,8 +50,13 @@ class Moderation(commands.Cog, name='модерация'):
                         member.guild_permissions.kick_members
                 )
         ):
-            logger.info(f'модератор {author_name} попытался забанить администратора {member.display_name}')
-            return ':no_entry: <@{}> Нельзя {} другого администратора/модератора, обратитесь к {}.'
+            logging.info(
+                f'{context.author.name} попытался забанить другого модератора/администратора {member.display_name}'
+            )
+            return (
+                f':no_entry: {context.author.mention} Нельзя {action} другого администратора/модератора, '
+                f'обратитесь к {owner}.'
+            )
 
         return 0
 
@@ -43,27 +68,27 @@ class Moderation(commands.Cog, name='модерация'):
             *, reason: str = commands.parameter(description='Причина блокировки.', default='Без причины')
     ):
         """
-        Бан пользователя
-        Для того, чтобы забанить пользователя, просто пинганите его после команды.
+        Бан пользователя.
+
+        Для того чтобы забанить пользователя, просто пинганите его после команды.
         Вы можете написать причину через пробел после пинга (необязательно).
 
         Пример команды: .ban @нарушитель спамит
         """
-        await ctx.message.add_reaction('✅')
-        await ctx.message.delete(delay=10)
+        await ctx.message.delete(delay=5)
 
-        if not isinstance(resp := self.check_target_member_permissions(member=user, author_name=ctx.author.name), int):
-            await ctx.send(
-                resp.format(
-                    ctx.author.id, 'заблокировать', getenv('GUILD_OWNER')
-                ), delete_after=5
-            )
+        if not isinstance(
+                resp := self.check_target_member_permissions(action='заблокировать', context=ctx, member=user), int
+        ):
+            await ctx.message.add_reaction('❌')
+            await ctx.send(resp, delete_after=5)
+
             return
 
-        # Бан
+        await ctx.message.add_reaction('✅')
+
         await user.ban(reason=reason)
 
-        # Уведомление о бане
         file = discord.File('img/ban.png', filename='ban.png')
         embed = discord.Embed(color=discord.Colour.red())
         embed.add_field(name='Бан пользователя!',
@@ -72,8 +97,10 @@ class Moderation(commands.Cog, name='модерация'):
         embed.set_image(url='attachment://ban.png')
         embed.set_footer(text=f'{datetime.now().strftime("%d-%m-%Y %H:%M")}'
                               f'\nВызвал(а) {ctx.author}', icon_url=ctx.author.avatar.url)
+
         await ctx.send(embed=embed, file=file)
-        logger.info(f'модератор {ctx.author} забанил {user.display_name}')
+
+        logging.info(f'модератор {ctx.author} заблокировал {user.display_name}')
 
     @commands.has_permissions(kick_members=True)
     @commands.command(name='kick', aliases=['кик', 'кикнуть'])
@@ -83,16 +110,19 @@ class Moderation(commands.Cog, name='модерация'):
             *, reason: str = commands.parameter(description='Причина исключения.', default='Без причины')
     ):
         """
-        Кик пользователя
-        Для того, чтобы кикнуть пользователя, просто пинганите его после команды.
+        Кик пользователя.
+
+        Для того чтобы кикнуть пользователя, просто пинганите его после команды.
         Вы можете написать причину через пробел после пинга (необязательно).
 
         Пример команды: .kick @нарушитель спамит
         """
         await ctx.message.add_reaction('✅')
-        await ctx.message.delete(delay=10)
+        await ctx.message.delete(delay=5)
 
-        if not isinstance(resp := self.check_target_member_permissions(member=user, author_name=ctx.author.name), int):
+        if not isinstance(
+                resp := self.check_target_member_permissions(action='выгнать', context=ctx, member=user), int
+        ):
             await ctx.send(
                 resp.format(
                     ctx.author.id, 'исключить', getenv('GUILD_OWNER')
@@ -100,10 +130,8 @@ class Moderation(commands.Cog, name='модерация'):
             )
             return
 
-        # Кик
         await user.kick(reason=reason)
 
-        # Уведомление о кике
         file = discord.File('img/kick.png', filename='kick.png')
         embed = discord.Embed(color=discord.Colour.red())
         embed.add_field(name='Исключение пользователя!',
@@ -114,7 +142,7 @@ class Moderation(commands.Cog, name='модерация'):
                               f'\nВызвал(а) {ctx.author}', icon_url=ctx.author.avatar.url)
         await ctx.send(embed=embed, file=file)
 
-        logger.info(f'модератор {ctx.author} кикнул {user.display_name}')
+        logging.info(f'модератор {ctx.author} кикнул {user.display_name}')
 
     @commands.has_permissions(manage_messages=True)
     @commands.command(aliases=['c', 'cl', 'чистка', 'удалить'])
@@ -123,13 +151,16 @@ class Moderation(commands.Cog, name='модерация'):
             amount: int = commands.parameter(description='Количество сообщений для удаления', default=1)
     ):
         """
-        Очистка чата от сообщений
+        Очистка чата от сообщений.
+
         Напишите команду и количество сообщений, которое хотите удалить.
+
         Например, .clear 5
+
         Команду можно вызвать, не указывая количество сообщений для удаления.
         В таком случае будет удалено одно сообщение.
 
-        !Команда удаляется автоматически и не требует учёта!
+        ! Команда удаляется автоматически и не требует учёта !
         """
         await ctx.message.add_reaction('✅')
         await ctx.channel.purge(limit=amount + 1)
@@ -149,12 +180,10 @@ class Moderation(commands.Cog, name='модерация'):
         await ctx.message.add_reaction('✅')
         await ctx.message.delete(delay=5)
 
-        # разбан
         async for banned in ctx.guild.bans():
             if banned.user.name == user:
                 await ctx.guild.unban(banned.user)
 
-                # Уведомление о разбане
                 file = discord.File('img/unban.png', filename='unban.png')
                 embed = discord.Embed(color=discord.Colour.green())
                 embed.add_field(name='Разблокировка пользователя!',
@@ -163,8 +192,9 @@ class Moderation(commands.Cog, name='модерация'):
                 embed.set_image(url='attachment://unban.png')
                 embed.set_footer(text=f'{datetime.now().strftime("%d-%m-%Y %H:%M")}'
                                       f'\nВызвал(а) {ctx.author}', icon_url=ctx.author.avatar.url)
+
                 await ctx.send(embed=embed, file=file)
-                logger.info(f'модератор {ctx.author} разбанил {banned.user.display_name}')
+                logging.info(f'модератор {ctx.author} разбанил {banned.user.display_name}')
                 return
 
         await ctx.send(f':no_entry: Пользователь `{user}` не найден в списке заблокированных', delete_after=4)
@@ -197,7 +227,7 @@ class Moderation(commands.Cog, name='модерация'):
         embed.set_footer(text=f'{datetime.now().strftime("%d-%m-%Y %H:%M")}'
                               f'\nВызвал(а) {ctx.author}', icon_url=ctx.author.avatar.url)
         await ctx.send(embed=embed)  # , file=file)
-        logger.info(f'модератор {ctx.author} предупредил {user.display_name}')
+        logging.info(f'модератор {ctx.author} предупредил {user.display_name}')
 
     @commands.has_permissions(kick_members=True)
     @commands.command(name='info', aliases=['inf', 'инфа'])
@@ -222,72 +252,34 @@ class Moderation(commands.Cog, name='модерация'):
         embed.set_footer(text=f'{datetime.now().strftime("%d-%m-%Y %H:%M")}'
                               f'\nВызвал(а) {ctx.author}', icon_url=ctx.author.avatar.url)
         await ctx.send(embed=embed)
-        logger.info(f'модератор {ctx.author} отобразил информацию о пользователе {user.display_name}')
+        logging.info(f'модератор {ctx.author} отобразил информацию о пользователе {user.display_name}')
 
-    @ban_user.error
-    @kick_user.error
-    @warn_user.error
-    async def ban_kick_and_warn_error(self, ctx: commands.Context, error: commands.CommandError):
-        if isinstance(error, commands.MissingRequiredArgument):
-            await ctx.message.add_reaction('✅')
-            await ctx.send(f'Вы пропустили аргумент команды `.{ctx.command}`! '
-                           '\nПожалуйста, укажите пользователя с помощью пинга. '
-                           f'{ctx.author.mention}', delete_after=6)
-            logger.info(f'Пропущен аргумент команды .{ctx.command}')
-            await ctx.message.delete(delay=1)
+    async def cog_command_error(self, ctx: commands.Context, error: Exception):
+        """Обработчик исключений, связанных с командами модерации"""
+        await ctx.message.delete(delay=2)
 
-        elif isinstance(error, commands.BadArgument):
-            await ctx.message.add_reaction('✅')
-            await ctx.send(f'Вы использовали неверный аргумент команды `.{ctx.command}`! '
-                           '\nПожалуйста, укажите пользователя с помощью пинга. '
-                           'И убедитесь, что он присутствует на сервере'
-                           f'{ctx.author.mention}', delete_after=6)
-            logger.info(f'Неверно введён аргумент команды .{ctx.command}')
-            await ctx.message.delete(delay=1)
+        try:
+            emoji, answer, log_msg = MODERATION_COG_ERRORS.get(type(error))
+        except TypeError:
+            await ctx.message.add_reaction('🤔')
+            await ctx.send(
+                f'При выполнении команды `.{ctx.command}` возникло неизвестное исключение!\n'
+                f'Обратитесь к {ctx.guild.owner.mention}', delete_after=6)
+            logging.error(
+                f'При выполнении команды `.{ctx.command}` возникло неизвестное исключение: {error} — {type(error)}'
+            )
+            return
 
-        elif isinstance(error, commands.MissingPermissions):
+        await ctx.message.add_reaction(emoji)
 
-            await ctx.message.add_reaction('✅')
-            await ctx.send(':no_entry: У вас нет прав на использование команды `.{ctx.command}`! '
-                           f'{ctx.author.mention}', delete_after=6)
-            logger.info(f'У {ctx.author} недостаточно прав для использования команды .{ctx.command}')
-            await ctx.message.delete(delay=1)
+        await ctx.send(
+            f'{answer.format(ctx.command, ctx.command)}\n{ctx.author.mention}',
+            delete_after=6
+        )
 
-    @clear.error
-    async def clear_error(self, ctx: commands.Context, error: commands.CommandError):
-        if isinstance(error, commands.MissingPermissions):
-            await ctx.message.add_reaction('❌')
-            await ctx.send(':no_entry: У вас нет прав на использование данной команды! '
-                           f'{ctx.author.mention}', delete_after=6)
-            logger.info(f'У {ctx.author} недостаточно прав для использования команды .clear')
-            await ctx.message.delete(delay=1)
-
-    @unban_user.error
-    async def unban_error(self, ctx: commands.Context, error: commands.CommandError):
-        if isinstance(error, commands.MissingRequiredArgument):
-            await ctx.message.add_reaction('✅')
-            await ctx.send('Вы пропустили аргумент команды! '
-                           '\nПожалуйста, укажите ник пользователя. '
-                           f'{ctx.author.mention}', delete_after=6)
-            logger.info('Пропущен аргумент команды .unban')
-            await ctx.message.delete(delay=1)
-
-        elif isinstance(error, commands.BadArgument):
-            await ctx.message.add_reaction('✅')
-            await ctx.send('Вы использовали неверный аргумент команды! '
-                           '\nПожалуйста, укажите ник пользователя. '
-                           f'{ctx.author.mention}', delete_after=6)
-            logger.info('Неверно введён аргумент команды .unban')
-            await ctx.message.delete(delay=1)
-
-        elif isinstance(error, commands.MissingPermissions):
-            await ctx.message.add_reaction('❌')
-            await ctx.send(':no_entry: У вас нет прав на использование данной команды! '
-                           f'{ctx.author.mention}', delete_after=6)
-            logger.info(f'У {ctx.author} недостаточно прав для использования команды .unban')
-            await ctx.message.delete(delay=1)
+        logging.info(log_msg.format(ctx.author.name, ctx.command))
 
 
-async def setup(bot):
-    """Настройка"""
-    await bot.add_cog(Moderation(bot))
+async def setup(bot: commands.Bot):
+    """Функция для подключения группы команд к боту"""
+    await bot.add_cog(Moderation())

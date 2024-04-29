@@ -2,10 +2,8 @@
 from discord.ext import commands
 
 
-class Utils(commands.Cog, name='утилиты'):
+class Utils(commands.Cog, name='Утилиты'):
     """Утилиты"""
-    def __init__(self, bot):
-        self.bot = bot
 
     @commands.command(aliases=('p',))
     async def ping(self, ctx) -> None:
@@ -17,6 +15,6 @@ class Utils(commands.Cog, name='утилиты'):
         await ctx.message.delete(delay=1)
 
 
-async def setup(bot) -> None:
-    """Настройка"""
-    await bot.add_cog(Utils(bot))
+async def setup(bot: commands.Bot):
+    """Функция для подключения группы команд к боту"""
+    await bot.add_cog(Utils())
